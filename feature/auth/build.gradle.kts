@@ -29,6 +29,7 @@ kotlin {
             implementation(project(":core:designsystem"))
             implementation(project(":core:network"))
             implementation(project(":core:storage"))
+            implementation(libs.ktor.serialization.kotlinx.json)
             implementation(project.dependencies.platform(libs.koin.bom))
             implementation(libs.koin.core)
             implementation(libs.koin.annotations)

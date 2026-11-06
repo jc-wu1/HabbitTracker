@@ -25,8 +25,32 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.*
+import kotlin.io.encoding.Base64
 
 class DefaultAuthRepositoryTest {
+    @Test
+    fun restoresTheExistingSavedSessionWithoutCallingTheNetwork() = runTest {
+        val payload = Base64.UrlSafe.withPadding(Base64.PaddingOption.ABSENT)
+            .encode("""{"exp":1900000000}""".encodeToByteArray())
+        val saved = sessionJson.replace("test-access-token", "header.$payload.signature")
+        val store = FakeSecureStore().apply { values["auth_session"] = saved }
+        client(MockEngine { error("restoring a session must not call the network") }).use { client ->
+            val repository = DefaultAuthRepository(AuthRemoteDataSource(client), store)
+            assertEquals(1_900_000_000_000L, repository.accessTokenExpiresAtMillis())
+            assertEquals(saved, store.values["auth_session"])
+        }
+    }
+
+    @Test
+    fun missingMalformedAndTokenlessSavedSessionsCannotRestoreHome() = runTest {
+        for (saved in listOf(null, sessionJson, "{}", "invalid-json", sessionJson.replace("test-access-token", ""))) {
+            val store = FakeSecureStore().apply { if (saved != null) values["auth_session"] = saved }
+            client(MockEngine { error("no network expected") }).use { client ->
+                assertNull(DefaultAuthRepository(AuthRemoteDataSource(client), store).accessTokenExpiresAtMillis())
+            }
+        }
+    }
+
     @Test
     fun postsCredentialsAndPersistsTheCompleteSession() = runTest {
         val engine = MockEngine { request ->

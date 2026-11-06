@@ -2,18 +2,30 @@ package io.github.jcwu1.habbit.auth.data
 
 import io.github.jcwu1.habbit.auth.AuthRepository
 import io.github.jcwu1.habbit.auth.AuthResult
+import io.github.jcwu1.habbit.auth.SessionRepository
 import io.github.jcwu1.habbit.storage.SecureStore
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import org.koin.core.annotation.Singleton
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.builtins.nullable
 
 @Singleton
 internal class DefaultAuthRepository(
     private val remote: AuthRemoteDataSource,
     private val store: SecureStore,
-) : AuthRepository {
+) : AuthRepository, SessionRepository {
+    override suspend fun accessTokenExpiresAtMillis(): Long? {
+        val session = try {
+            store.get("auth_session", null, AuthSession.serializer().nullable)
+        } catch (_: SerializationException) {
+            return null
+        }
+        return session?.let { accessTokenExpiryMillis(it.accessToken) }
+    }
+
     override suspend fun logIn(username: String, password: String): AuthResult {
         val session = try {
             remote.logIn(username, password)
