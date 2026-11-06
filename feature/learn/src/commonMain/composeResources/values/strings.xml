@@ -1,0 +1,26 @@
+<resources>
+    <string name="learn_greeting">Hola, Alex</string>
+    <string name="learn_subtitle">Your daily dose of discovery</string>
+    <string name="learn_notifications">Notifications</string>
+    <string name="learn_continue_label">CONTINUE LEARNING</string>
+    <string name="learn_lesson_title">At the café</string>
+    <string name="learn_unit">Unit 3 · Everyday moments</string>
+    <string name="learn_lesson_duration">Lesson 4 · 6 min</string>
+    <string name="learn_continue">Continue lesson</string>
+    <string name="learn_streak">7-day streak</string>
+    <string name="learn_streak_body">A little every day adds up.</string>
+    <string name="learn_goal">Today’s goal</string>
+    <string name="learn_goal_time">10 / 15 min</string>
+    <string name="learn_path">Your learning path</string>
+    <string name="learn_view_all">View all</string>
+    <string name="learn_path_unit">UNIT 3 · EVERYDAY MOMENTS</string>
+    <string name="learn_greetings">Greetings</string>
+    <string name="learn_ordering_food">Ordering food</string>
+    <string name="learn_complete">Complete</string>
+    <string name="learn_current">Current</string>
+    <string name="learn_up_next">Up next</string>
+    <string name="learn_path_footer">Unit 2 complete · Unit 4 up next</string>
+    <string name="learn_lessons_unavailable">Lessons are not available yet.</string>
+    <string name="learn_units_unavailable">More units are not available yet.</string>
+    <string name="learn_notifications_unavailable">Notifications are not available yet.</string>
+</resources>
