@@ -1,0 +1,15 @@
+<resources>
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_get_started">Get started</string>
+    <string name="onboarding_page">Page %1$d of %2$d</string>
+    <string name="onboarding_welcome_label">WELCOME</string>
+    <string name="onboarding_welcome_title">A new language.\nA few minutes a day.</string>
+    <string name="onboarding_welcome_body">Little lessons. Real conversations.</string>
+    <string name="onboarding_goals_label">MADE FOR YOU</string>
+    <string name="onboarding_goals_title">Your goals.\nYour kind of path.</string>
+    <string name="onboarding_goals_body">Lessons adapt to your level,\nso every step fits your goals.</string>
+    <string name="onboarding_streak_label">A LITTLE EVERY DAY</string>
+    <string name="onboarding_streak_title">Small steps.\nBig momentum.</string>
+    <string name="onboarding_streak_body">Keep your streak alive and reach\nyour daily goal, one lesson at a time.</string>
+</resources>

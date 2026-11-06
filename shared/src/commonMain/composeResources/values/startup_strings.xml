@@ -1,0 +1,5 @@
+<resources>
+    <string name="startup_load_failed">We couldn&apos;t load your preferences.</string>
+    <string name="startup_save_failed">We couldn&apos;t save your progress. Please try again.</string>
+    <string name="startup_retry">Try again</string>
+</resources>

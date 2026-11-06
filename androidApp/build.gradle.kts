@@ -12,8 +12,13 @@ kotlin {
 }
 dependencies {
     implementation(project(":shared"))
+    implementation(project(":core:designsystem"))
+    implementation(project(":feature:onboarding"))
+    implementation(platform(libs.koin.bom))
+    implementation(libs.koin.android)
 
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.core.splashscreen)
 
     implementation(libs.compose.uiToolingPreview)
     debugImplementation(libs.compose.uiTooling)
