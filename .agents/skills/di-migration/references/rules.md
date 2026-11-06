@@ -1,0 +1,322 @@
+# Koin Rules — shared by every Koin skill
+
+These rules apply to every piece of Koin code a skill produces: setup, everyday
+code, migration, diagnosis fixes. Deviate only with explicit user approval, and
+flag it. A request that breaks a rule or a principle is not that approval:
+push back first ("When a request breaks a principle" in
+`references/principles.md`).
+
+Exact imports and syntax: `references/koin-annotations.md` and
+`references/koin-compiler-plugin-dsl.md`. Don't infer them from memory.
+
+## 1. One definition style, chosen explicitly
+
+Koin supports two styles, both compiled by the Koin Compiler Plugin:
+
+- **Koin Annotations** — `@Singleton`, `@Factory`, `@KoinViewModel`, `@Module`.
+  JSR-330 compatible (`@Inject`, `@Singleton`, `@Named`, `@Qualifier` from
+  `javax.inject` / `jakarta.inject`), which suits apps coming from Dagger / Hilt.
+  Prefer `@Singleton` over `@Single`.
+- **Koin DSL** — `module { }` blocks; keeps DI out of the code (no annotations
+  on classes, wiring kept separate). Three forms, all compiled **and
+  compile-time checked** by the Compiler Plugin (including `singleOf(::T)` and
+  the `get()` calls inside lambdas):
+
+  | Form | Example | Use when |
+  |---|---|---|
+  | **Compiler Plugin DSL** | `single<MyClass>()`, `single { create(::MyClass) }` | **Preferred when the Compiler Plugin is present** and the definition is a constructor (or function builder) |
+  | Constructor DSL | `singleOf(::MyClass)` | Project without the Compiler Plugin, or matching existing code |
+  | Classic DSL | `single { MyClass(get()) }` | The definition needs a custom expression a constructor or function builder can't express, or no Compiler Plugin |
+
+  Pick by the **definition expression**: a plain constructor → Compiler Plugin DSL
+  (with the Compiler Plugin); anything custom → function builder or classic
+  lambda. Classic and Constructor DSL are valid Koin — write them when needed, and
+  don't rewrite existing code unless the user asks. Converting existing DSL to
+  Compiler Plugin DSL is a style choice (`di-migration`), not what makes the
+  graph compile safe — the plugin does that for every form.
+
+**The style is a project decision.** Make it explicit: state the style before
+writing code (detect it in an existing project, ask in a new one) and keep to
+it. **Don't mix** Annotations and DSL unless the user explicitly asks — then
+each module has one style, never both inside a module.
+
+Within either style:
+
+- Types that can't be built from their constructor (Retrofit, Room, OkHttp
+  builders) use a **function builder** (`references/principles.md` rule 1):
+  `@Singleton fun` in a `@Module`, or `single { create(::buildX) }` in Compiler Plugin DSL.
+- **Auto-bind (Annotations)** — a `@Singleton` / `@Factory` class is bound
+  automatically to every interface / abstract class it implements: no
+  `binds = [...]` unless exposing a subset.
+- **Interface binding (Compiler Plugin DSL)** — infix `single<Impl>() bind I::class`
+  by default. Keep `.bind<I>()` where the project already uses it; use
+  `withOptions { bind<I>() }` only to combine the binding with other options
+  (`createdAtStart()`…).
+- **Qualifiers** — distinct types first (`references/principles.md` rule 10);
+  annotations wherever a qualifier is still needed: `@Named` /
+  custom `@Qualifier` on the class, the constructor parameter or the function
+  builder, in both Annotations and Compiler Plugin DSL (`single<T>()` and
+  `single { create(::buildX) }` stay plain). `named("x")` is classic DSL only.
+
+## 2. Compiler Plugin recommended, Koin KSP never
+
+The Koin Compiler Plugin (`id("io.insert-koin.compiler.plugin")`) is the
+**recommended default**: it makes the graph compile safe (§6), whatever the
+style or DSL form — adding it is a Gradle change, no module rewrite. Recommend it in
+every setup and migration, and say what it brings — but it's the user's
+choice, not a requirement. The user declines → Koin DSL without the plugin
+(constructor or classic forms, §1); Annotations need the plugin, so they're off
+the table. Respect the answer for the rest of the conversation.
+
+Whatever the choice, never Koin KSP:
+
+- Never add `com.google.devtools.ksp` for Koin, never `koin-ksp-compiler`.
+- Never pin `io.insert-koin:koin-annotations:2.x` — that's the KSP artifact,
+  incompatible with the Compiler Plugin. Let the BOM resolve it.
+- Never `org.koin.ksp.generated.*` imports.
+
+This section and §3 target new setup and migrated code. **Inside an existing
+Koin KSP or Koin 3.x project**, a task matches the project's current Koin
+artifacts, versions and imports — add no new KSP use, change no Koin artifact
+or version. Moving it to the
+Compiler Plugin is a `di-migration`, proposed once per conversation by the
+`koin` skill (Step 0).
+
+## 3. Versions
+
+Koin and the Compiler Plugin release independently and often. Versions come
+from Maven Central at task time — not from these files, not from the MCP. This
+table is the floor (never output anything below) and the offline fallback:
+
+| Component             | Minimum     |
+|-----------------------|-------------|
+| Kotlin                | `2.3.20` (K2) |
+| Koin                  | `4.2.2`     |
+| Koin Compiler Plugin  | `1.2.3`     |
+
+**When** — a new setup, a migration, or a task that is the upgrade. A project
+that already pins Koin and the plugin keeps its versions otherwise; a
+version-specific workaround below is the one reason to propose a bump.
+
+**Resolve the latest stable** — read the raw XML (`curl -s <url>`, or fetch
+the URL and check the list came back whole):
+
+- Koin BOM: `https://repo1.maven.org/maven2/io/insert-koin/koin-bom/maven-metadata.xml`
+- Compiler Plugin: `https://repo1.maven.org/maven2/io/insert-koin/koin-compiler-gradle-plugin/maven-metadata.xml`
+
+Stable = three numbers only (`x.y.z`, no hyphen). Among the stable entries of
+the `<version>` list, the highest comparing each number (`4.10.0` > `4.9.0`),
+not the last in the list and never the `<release>` / `<latest>` tag — both can
+point at a pre-release. A pre-release only when the user asks for it. Maven
+Central unreachable → the minimums. Say which versions you used and where they
+came from.
+
+**Check the pair** — then fetch the Compiler Plugin's release notes,
+`https://github.com/InsertKoinIO/koin-compiler-plugin/releases/tag/<version>`:
+"Compatibility" lists the Koin and Kotlin versions it supports.
+The project's Kotlin older than the list → the newest plugin release that lists
+it. Newer than the list → the latest plugin, and say its notes don't list that
+Kotlin yet; a plugin crash at build is the signal to stop and report. GitHub
+unreachable → the pair is unverified; say so.
+
+**Version-specific workarounds** in these references name the release that
+fixed them ("below 1.2.3: …"). On that release or later, skip them; below it,
+propose the upgrade before the workaround.
+
+**Kotlin bump** — below Kotlin `2.3.20`, bumping Kotlin cascades: check that
+KSP (before 2.3.0 versioned `<kotlin>-<ksp>`, tied to one Kotlin version;
+from 2.3.0 versioned on its own — check its release notes for Kotlin support), the Compose Compiler plugin, Room, kapt
+processors and the AGP minimum still line up, and confirm with the user before
+changing anything.
+
+## 4. Imports
+
+Every Compiler Plugin DSL primitive and the reified `startKoin<App>` entry point live in
+**`org.koin.plugin.module.dsl`**. The Constructor DSL `*Of` family lives in
+`org.koin.core.module.dsl.*`.
+
+## 5. Configuration — assembling the graph
+
+Each definition style has its own configuration style. Use the one that matches
+the project's style (§1). Code: "Modules" / "App entry point" in
+`references/koin-annotations.md` and `references/koin-compiler-plugin-dsl.md`.
+
+### Annotations configuration — discovery
+
+Safer at scale: the graph is discovered and verified by the Compiler Plugin.
+
+- **`@KoinApplication`** on the app class + bare `startKoin<App> { androidContext(...) }`.
+  No `modules(...)` call.
+- **`@Module` + `@Configuration`** — a module tagged `@Configuration` is picked
+  up automatically by `@KoinApplication`.
+- **`@ComponentScan("own.package")`** — scans the classpath for annotated
+  classes, **across Gradle modules**.
+- Each Gradle module's **root** module carries all three:
+  `@Module @Configuration @ComponentScan("own.package")`. Sub-modules pulled in
+  via `@Module(includes = [Other::class])` need only `@Module`.
+- **Missing any of the three on a root → silent runtime
+  `NoDefinitionFoundException`, not a compile error.**
+- Escape hatch (variants, conditional loading, test overrides): load a module
+  explicitly inside `startKoin { }` with `module<AppModule>()` or
+  `modules(AppModule::class, OtherModule::class)` (both from
+  `org.koin.plugin.module.dsl`). **Never** `AppModule().module` (Koin KSP
+  idiom, breaks the Compiler Plugin path).
+
+### DSL configuration — assembling modules
+
+The graph is assembled explicitly.
+
+- **`startKoin` loads one entry module** — the app module.
+- The app module **`includes(...)`** each child module (feature / Gradle
+  module); children can include their own. Included modules are optimized by
+  Koin — prefer `includes` over listing every module in `startKoin`.
+- `module<T>()` / `modules(T::class)` load annotated modules only.
+
+### Platforms
+
+- **KMP** — one shared start function in `commonMain` (e.g. `initApp()`) that
+  starts Koin with the modules declared in common code. Each native entry point
+  (Android `Application`, iOS app init, desktop `main`) calls it and adds its
+  platform configuration:
+
+  ```kotlin
+  // commonMain
+  fun initApp(config: KoinAppDeclaration? = null) = startKoin {
+      config?.invoke(this)
+      modules(appModule)          // Annotations style: startKoin<KoinApp> { config?.invoke(this) }
+  }
+
+  // androidMain — Application.onCreate()
+  initApp { androidContext(this@MainApplication) }
+  ```
+
+- **Logger** — only when needed: `androidLogger()` when starting on Android,
+  `printLogger()` on other platforms, or nothing.
+
+### Mixing (only if the user asked for it)
+
+Each module keeps one style. Annotated and DSL modules load in the same
+`startKoin { }`: `modules(appModule)` then `module<AnnotatedModule>()`.
+`module<T>()` / `modules(T::class)` extend `KoinApplication`, so they work only
+inside the `startKoin { }` block — not in a `module { }`, not through a
+`KoinApplication` extension function. Neither style can include the other: a DSL module can't `includes`
+an annotated one, and `@Module(includes = [...])` can't take a DSL `val`.
+
+## 6. Graph verification is compile-time
+
+The Koin Compiler Plugin checks the graph at build time, in two ways: the
+**full graph** at the Koin entry point (`startKoin` / `@KoinApplication`) and
+every **call site** (`get()`, `inject()`, `koinViewModel()`…). Don't write
+`checkModules()` / `verify()` tests — both are on their way to deprecation in
+favor of the Compiler Plugin. Without the plugin (the user's choice, §2) there
+is no compile-time check: verify by building, then running the paths that
+resolve the definitions.
+
+**Check that the check runs** — after setup, or a change to how Koin starts,
+propose this to the user as their step (it edits their code): remove a
+definition a class needs, build, expect a `[KOIN-…]` error, restore it.
+A green build means the plugin doesn't see the modules — e.g. passed through a
+vararg (`modules(*mods)`): name the app module in `modules(...)` directly. A
+function that wraps `startKoin { modules(appModule) }` (KMP `initApp()`, §5) is
+checked normally. Until this check fails as expected, the graph isn't verified.
+
+**Multi-module DSL apps** — the full graph is checked when compiling the Gradle
+module that calls `startKoin`. Library modules have no entry point, so the
+full-graph check doesn't run when they compile — expected. That check sees another Gradle module's
+definitions only through the compile classpath (`references/gradle.md`).
+
+When the build reports a Koin compile-safety error (`[KOIN-…]`), fix what the
+report says. When it isn't enough, the Kotzilla MCP **Koin errors** workflow
+(`references/kotzilla.md` — MCP only, no SDK) can diagnose it — optional; the
+`koin-diagnose` skill runs it end to end.
+
+## 7. Organize modules
+
+- **By feature / Gradle module** (`HomeModule`, `NetworkModule`), never by
+  binding type (`SingletonsModule`). Large features split into sub-modules.
+- **Location** — modules go in a dedicated `.di` package (e.g.
+  `com.acme.feature.home.di`). Follow what the project already does, and
+  confirm with the user when there's no existing convention.
+- **Discovery vs explicit includes (Annotations)** — tag the **main** modules
+  with `@Configuration` (one per Gradle module, plus transverse modules that
+  must always load); attach **sub-modules with `includes`**, not
+  `@Configuration`. How much to rely on discovery vs explicit includes is the
+  user's choice — ask when unclear.
+- **DSL** — sub-modules attached with `includes(...)`; the app module includes
+  the feature modules (§5).
+- **`@ComponentScan` on a focused package** — the module's own package (e.g.
+  `com.acme.feature.home`), never a broad root like `com.acme`: broad scans
+  pick up unrelated classes and slow the build. Without an argument it scans
+  the module's own package — with modules in `.di`, pass the feature package
+  explicitly: `@ComponentScan("com.acme.feature.home")`.
+- **`@Configuration` labels** (`@Configuration("test")`,
+  `@KoinApplication(configurations = [...])`) — advanced; ask the user before
+  using them.
+
+### KMP — common and platform modules
+
+Shared definitions and interfaces in `commonMain`; platform implementations per
+target with `expect` / `actual`:
+
+```kotlin
+// Annotations
+@Module expect class PlatformModule                                   // commonMain
+@Module actual class PlatformModule {                                 // androidMain, iosMain…
+    @Singleton fun platform(): Platform = AndroidPlatform()
+}
+
+// DSL
+expect val platformModule: Module                                     // commonMain
+actual val platformModule = module {                                  // androidMain, iosMain…
+    single<AndroidPlatform>() bind Platform::class
+}
+// the common app module includes(platformModule)
+```
+
+## 8. Service locator only with the user's acknowledgement
+
+Constructor injection everywhere in normal layers (domain, data, presentation
+logic). Entry points and bootstrap code use the **Koin API made for them**
+(Compose `koinViewModel()` / `koinInject()`, Android `by inject()`,
+`@KoinWorker`…) — no `KoinComponent` needed. `KoinComponent` only when no Koin
+API fits: name it a **service locator**, state the cost (the class depends on
+Koin, hidden dependencies, no compile-time check), and get an explicit OK
+before writing it. `references/principles.md` rule 2.
+
+## 9. Koin knowledge and runtime behavior
+
+Never answer Koin questions from memory — lookup order in
+`references/index.md`.
+
+The Compiler Plugin makes definitions compile safe (§6); it doesn't check how
+the app behaves. Runtime behavior is measured, not guessed: "What Kotzilla
+owns" in `references/kotzilla.md`.
+
+**Prefer MCP output over these reference files when they disagree** — the MCP
+tracks the latest releases; references are a snapshot. Versions excepted:
+Maven Central, §3.
+
+## 10. Small changes in one step, large ones step by step
+
+**Small** — one Gradle module or one feature, about five definitions or fewer,
+no custom scope, multibinding or Worker, call sites inside that unit: do it in
+one step, then verify.
+
+**Larger** — a migration of several modules or features, a setup across
+Gradle modules, a restructuring (splitting modules, adding scopes, changing
+style): split it into steps, each one **safe on its own**:
+
+- **Verifiable alone** — it builds, and the path it touches runs
+- **The project works between steps** — the old wiring keeps running until its
+  replacement is verified (in a migration: alongside the old container, with a
+  bridge for what still crosses it)
+- **Revertible** — one self-contained commit
+- **Small** by the measure above — in a migration, rank candidates with
+  `di-migration`'s "Where to start" criteria and take the top one
+
+The rhythm: plan the steps (smallest and safest first) and get the user's OK
+on the plan and the first step. Each step: change → build → run the path →
+report what changed, what's verified or not (and why), and the next step →
+stop for the user's OK. Pre-approved ("do it all"): still one step at a time,
+each verified and reported, stopping at the first failure — never stack
+unverified steps.
