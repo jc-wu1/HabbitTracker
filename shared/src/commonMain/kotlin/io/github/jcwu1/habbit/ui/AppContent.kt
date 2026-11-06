@@ -21,6 +21,7 @@ import org.jetbrains.compose.resources.stringResource
 internal fun AppContent(
     state: StartupState,
     onRetryLoad: () -> Unit,
+    onSignedIn: () -> Unit,
     onCompleteOnboarding: () -> Unit,
     onDismissSaveError: () -> Unit,
 ) {
@@ -38,7 +39,13 @@ internal fun AppContent(
             }
         }
     } else {
-        HabbitNavHost(seen, state.isSaving, onCompleteOnboarding)
+        HabbitNavHost(
+            hasSeenOnboarding = seen,
+            isSignedIn = state.isSignedIn,
+            isSaving = state.isSaving,
+            onCompleteOnboarding = onCompleteOnboarding,
+            onSignedIn = onSignedIn,
+        )
     }
     if (state.saveFailed) {
         AlertDialog(

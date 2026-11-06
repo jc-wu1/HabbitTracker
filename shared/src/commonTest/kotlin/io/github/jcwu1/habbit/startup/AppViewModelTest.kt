@@ -1,6 +1,7 @@
 package io.github.jcwu1.habbit.startup
 
 import io.github.jcwu1.habbit.onboarding.OnboardingPreferencesRepository
+import io.github.jcwu1.habbit.auth.SessionRepository
 
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CompletableDeferred
@@ -10,6 +11,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.*
 import kotlin.test.*
+
+private object NoSessionRepository : SessionRepository {
+    override suspend fun accessTokenExpiresAtMillis(): Long? = null
+}
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class AppViewModelTest {
@@ -23,7 +28,7 @@ class AppViewModelTest {
             override val hasSeenOnboarding: Flow<Boolean> = flow { emit(read.await()) }
             override suspend fun markSeen() { writes++; write.await() }
         }
-        val vm = AppViewModel(repository)
+        val vm = AppViewModel(repository, NoSessionRepository)
         try {
             vm.load()
             runCurrent()
@@ -58,7 +63,7 @@ class AppViewModelTest {
             }
             override suspend fun markSeen() = error("returning user must not rewrite preferences")
         }
-        val vm = AppViewModel(repository)
+        val vm = AppViewModel(repository, NoSessionRepository)
         try {
             vm.load()
             advanceUntilIdle()
@@ -83,7 +88,7 @@ class AppViewModelTest {
             override val hasSeenOnboarding = kotlinx.coroutines.flow.flowOf(false)
             override suspend fun markSeen() { if (fail) error("disk full") }
         }
-        val vm = AppViewModel(repository)
+        val vm = AppViewModel(repository, NoSessionRepository)
         try {
             vm.load()
             advanceUntilIdle()

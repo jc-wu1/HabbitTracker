@@ -55,6 +55,7 @@ kotlin {
         commonMain.dependencies {
             implementation(project(":feature:onboarding"))
             implementation(project(":feature:auth"))
+            implementation(project(":feature:learn"))
             implementation(project(":core:storage"))
             api(project.dependencies.platform(libs.koin.bom))
             api(libs.koin.core)

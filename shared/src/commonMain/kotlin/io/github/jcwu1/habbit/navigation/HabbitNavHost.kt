@@ -21,6 +21,7 @@ private val routeConfiguration = SavedStateConfiguration {
             subclass(Onboarding::class, Onboarding.serializer())
             subclass(Login::class, Login.serializer())
             subclass(Register::class, Register.serializer())
+            subclass(Home::class, Home.serializer())
         }
     }
 }
@@ -28,21 +29,25 @@ private val routeConfiguration = SavedStateConfiguration {
 @Composable
 fun HabbitNavHost(
     hasSeenOnboarding: Boolean,
+    isSignedIn: Boolean,
     isSaving: Boolean,
     onCompleteOnboarding: () -> Unit,
+    onSignedIn: () -> Unit,
 ) {
-    val backStack = rememberNavBackStack(
-        routeConfiguration,
-        if (hasSeenOnboarding) Login else Onboarding,
-    )
-    LaunchedEffect(hasSeenOnboarding) {
-        if (hasSeenOnboarding && backStack.any { it == Onboarding }) {
+    val root: NavKey = when {
+        isSignedIn -> Home
+        hasSeenOnboarding -> Login
+        else -> Onboarding
+    }
+    val backStack = rememberNavBackStack(routeConfiguration, root)
+    LaunchedEffect(root) {
+        if (backStack.firstOrNull() != root) {
             backStack.clear()
-            backStack.add(Login)
+            backStack.add(root)
         }
     }
-    // A restored onboarding stack may predate a completed preference write.
-    if (hasSeenOnboarding && backStack.any { it == Onboarding }) return
+    // Do not render a restored Home entry after the session has expired.
+    if (backStack.firstOrNull() != root) return
 
     NavDisplay(
         backStack = backStack,
@@ -62,13 +67,16 @@ fun HabbitNavHost(
             }
             entry<Login> {
                 LoginRoute(
+                    onSignedIn = onSignedIn,
                     onSignUp = {
                         if (backStack.lastOrNull() == Login) backStack.add(Register)
                     },
                 )
             }
+            entry<Home> { HomeScreen() }
             entry<Register> {
                 RegisterRoute(
+                    onSignedIn = onSignedIn,
                     onLogIn = {
                         if (backStack.lastOrNull() == Register) backStack.removeLastOrNull()
                     },
